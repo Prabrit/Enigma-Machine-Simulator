@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enigma Machine Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap');
+
+        :root {
+            --wood-dark: #2c2016;
+            --metal-panel: #3a3f44;
+            --metal-edge: #222528;
+            --brass: #b5a642;
+            --lamp-off: #1a1a1a;
+            --lamp-on: #ffcc00;
+            --lamp-glow: rgba(255, 204, 0, 0.8);
+            --key-bg: #e0e0e0;
+            --key-border: #999;
+
+            /* Responsive Sizing Variables using vh to prevent vertical scrolling */
+            --key-size: min(4.5vh, 45px);
+            --lamp-size: min(4vh, 40px);
+            --elem-font: min(2vh, 1.2rem);
+            --row-gap: min(0.8vh, 0.75rem);
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                --key-size: min(4vh, 34px);
+                --lamp-size: min(3.5vh, 32px);
+                --elem-font: min(1.8vh, 1rem);
+                --row-gap: min(0.5vh, 0.4rem);
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --key-size: min(3.5vh, 28px);
+                --lamp-size: min(3vh, 26px);
+                --elem-font: min(1.5vh, 0.8rem);
+                --row-gap: min(0.3vh, 0.2rem);
+            }
+        }
+
+        body {
+            background-color: var(--wood-dark);
+            background-image: radial-gradient(circle at center, #3d2d1f 0%, #1a120a 100%);
+            color: #e2e8f0;
+            font-family: 'Courier Prime', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: min(1vh, 1rem) min(1vw, 1rem);
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .enigma-casing {
+            background: var(--metal-panel);
+            border: 8px solid var(--metal-edge);
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 2px 10px rgba(255,255,255,0.1);
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: min(1.5vh, 1rem);
+            padding: min(1.5vh, 1rem);
+            position: relative;
+        }
+
+        @media (min-width: 768px) {
+            .enigma-casing {
+                padding: min(2vh, 1.5rem);
+            }
+        }
+
+        .section-title {
+            font-family: 'Special Elite', cursive;
+            color: var(--brass);
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            letter-spacing: 2px;
+            margin-bottom: min(1vh, 0.5rem);
+            text-transform: uppercase;
+            font-size: min(2vh, 1.2rem);
+            border-bottom: 1px solid var(--brass);
+            padding-bottom: min(0.5vh, 0.25rem);
+        }
+
+        .rotor-window {
+            background: #111;
+            border: 3px solid var(--brass);
+            border-radius: 4px;
+            color: #fff;
+            width: min(5vh, 40px);
+            height: min(6vh, 50px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: min(3vh, 1.5rem);
+            font-weight: bold;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.8);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .rotor-window::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(255,255,255,0.1) 50%, rgba(0,0,0,0.6) 100%);
+            pointer-events: none;
+        }
+
+        .rotor-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .rotor-btn {
+            background: #2a2a2a;
+            color: var(--brass);
+            border: 1px solid var(--brass);
+            border-radius: 4px;
+            width: min(4vh, 30px);
+            height: min(2.5vh, 20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.1s;
+        }
+        .rotor-btn:active {
+            background: var(--brass);
+            color: #111;
+        }
+
+        .qwertz-row {
+            display: flex;
+            justify-content: center;
+            gap: var(--row-gap);
+            margin-bottom: var(--row-gap);
+            width: 100%;
+        }
+
+        .lamp {
+            width: var(--lamp-size);
+            height: var(--lamp-size);
+            border-radius: 50%;
+            background: var(--lamp-off);
+            border: 3px solid #111;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-weight: bold;
+            font-size: var(--elem-font);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8), 0 2px 2px rgba(255,255,255,0.1);
+            transition: all 0.05s ease;
+        }
+
+        .lamp.active {
+            background: var(--lamp-on);
+            color: #000;
+            box-shadow: 0 0 15px 5px var(--lamp-glow), inset 0 0 10px rgba(255,255,255,0.8);
+            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        .key {
+            width: var(--key-size);
+            height: var(--key-size);
+            border-radius: 50%;
+            background: var(--key-bg);
+            border: 2px solid var(--key-border);
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: var(--elem-font);
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5), inset 0 -2px 5px rgba(0,0,0,0.2);
+            position: relative;
+            transition: transform 0.05s, box-shadow 0.05s;
+        }
+        
+        .key::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.5);
+            pointer-events: none;
+        }
+
+        .key:active, .key.pressed {
+            transform: translateY(4px);
+            box-shadow: 0 0px 2px rgba(0,0,0,0.5), inset 0 2px 5px rgba(0,0,0,0.4);
+            background: #d0d0d0;
+        }
+
+        .plugboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(4vh, 35px), 1fr));
+            gap: min(0.5vh, 0.25rem);
+            background: #2a2a2a;
+            padding: min(1vh, 0.5rem);
+            border-radius: 8px;
+            border: 2px inset #111;
+        }
+
+        .plug-socket {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+        }
+
+        .socket-holes {
+            display: flex;
+            gap: 2px;
+        }
+
+        .hole {
+            width: min(1.5vh, 10px);
+            height: min(1.5vh, 10px);
+            border-radius: 50%;
+            background: #111;
+            border: 1px solid #444;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+        }
+
+        .plug-label {
+            font-size: min(1.5vh, 0.7rem);
+            color: #aaa;
+        }
+
+        .plug-socket.active .hole {
+            border-color: var(--plug-color, #fff);
+            box-shadow: 0 0 5px var(--plug-color, #fff);
+        }
+        
+        .plug-socket.selected .hole {
+            background: #fff;
+        }
+
+        select, input[type="text"] {
+            background: #222;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: min(1.8vh, 0.9rem);
+            font-family: monospace;
+        }
+
+        .output-area {
+            background: #efefef;
+            color: #111;
+            font-family: 'Courier Prime', monospace;
+            padding: min(1vh, 0.5rem);
+            border-radius: 4px;
+            min-height: min(6vh, 60px);
+            word-wrap: break-word;
+            border: inset 3px #999;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            background-image: repeating-linear-gradient(transparent, transparent min(3vh, 24px), #ccc min(3vh, 24px), #ccc calc(min(3vh, 24px) + 1px));
+            line-height: min(3vh, 25px);
+            font-size: min(2vh, 1rem);
+        }
+    </style>
+</head>
+<body>
+
+    <h1 class="text-2xl md:text-3xl font-bold mb-2 text-yellow-500 drop-shadow-md" style="font-family: 'Special Elite', cursive;">ENIGMA I SIMULATOR</h1>
+
+    <div class="enigma-casing">
+        
+        <!-- Settings & Rotors Area -->
+        <div>
+            <div class="section-title">Walzenlage (Rotors)</div>
+            <div class="flex flex-wrap justify-center gap-4 items-end bg-gray-800 p-2 rounded-lg border border-gray-700">
+                
+                <!-- Reflector -->
+                <div class="flex flex-col items-center">
+                    <label class="text-xs text-gray-400 mb-1">UKW</label>
+                    <select id="reflector-select" class="mb-2">
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                    </select>
+                </div>
+
+                <div class="w-px h-10 bg-gray-600 mx-2"></div>
+
+                <!-- Rotor 1 (Left / Slow) -->
+                <div class="flex flex-col items-center gap-1">
+                    <select id="rotor1-type" class="text-xs w-12">
+                        <option value="0">I</option>
+                        <option value="1">II</option>
+                        <option value="2" selected>III</option>
+                        <option value="3">IV</option>
+                        <option value="4">V</option>
+                    </select>
+                    <div class="rotor-controls">
+                        <button class="rotor-btn" onclick="adjustRotor(0, 1)">▲</button>
+                        <div class="rotor-window" id="rotor1-window">A</div>
+                        <button class="rotor-btn" onclick="adjustRotor(0, -1)">▼</button>
+                    </div>
+                </div>
+
+                <!-- Rotor 2 (Middle) -->
+                <div class="flex flex-col items-center gap-1">
+                    <select id="rotor2-type" class="text-xs w-12">
+                        <option value="0">I</option>
+                        <option value="1" selected>II</option>
+                        <option value="2">III</option>
+                        <option value="3">IV</option>
+                        <option value="4">V</option>
+                    </select>
+                    <div class="rotor-controls">
+                        <button class="rotor-btn" onclick="adjustRotor(1, 1)">▲</button>
+                        <div class="rotor-window" id="rotor2-window">A</div>
+                        <button class="rotor-btn" onclick="adjustRotor(1, -1)">▼</button>
+                    </div>
+                </div>
+
+                <!-- Rotor 3 (Right / Fast) -->
+                <div class="flex flex-col items-center gap-1">
+                    <select id="rotor3-type" class="text-xs w-12">
+                        <option value="0" selected>I</option>
+                        <option value="1">II</option>
+                        <option value="2">III</option>
+                        <option value="3">IV</option>
+                        <option value="4">V</option>
+                    </select>
+                    <div class="rotor-controls">
+                        <button class="rotor-btn" onclick="adjustRotor(2, 1)">▲</button>
+                        <div class="rotor-window" id="rotor3-window">A</div>
+                        <button class="rotor-btn" onclick="adjustRotor(2, -1)">▼</button>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="text-center mt-2">
+                <button onclick="resetMachine()" class="px-3 py-1 bg-red-900 hover:bg-red-700 text-white rounded text-xs transition shadow-lg border border-red-950">Reset Machine</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Lampenfeld (Lightboard)</div>
+            <div class="bg-gray-900 p-2 rounded-lg border-2 border-black" id="lightboard">
+                <!-- Rows will be injected by JS -->
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Tastatur (Keyboard)</div>
+            <div class="bg-gray-700 p-2 rounded-lg border-2 border-gray-800 shadow-inner" id="keyboard">
+                <!-- Rows will be injected by JS -->
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Steckerbrett (Plugboard)</div>
+            <div class="text-xs text-gray-400 text-center mb-1">Click two letters to connect/disconnect them.</div>
+            <div class="plugboard-grid" id="plugboard">
+                <!-- Sockets injected by JS -->
+            </div>
+        </div>
+
+        <!-- Output Display -->
+        <div>
+            <div class="section-title">Output</div>
+            <div class="flex justify-between items-center mb-1">
+                <div class="text-xs">Plain/Cipher Text:</div>
+                <button onclick="clearOutput()" class="px-2 py-0.5 bg-gray-600 hover:bg-gray-500 rounded text-xs">Clear</button>
+            </div>
+            <div class="output-area" id="output-text"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // Enigma Configuration Constants (Historical M3)
+        const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        
+        // Rotor Wirings & Notches
+        const ROTORS = [
+            { name: "I",   wiring: "EKMFLGDQVZNTOWYHXUSPAIBRCJ", notch: "Q" },
+            { name: "II",  wiring: "AJDKSIRUXBLHWTMCQGZNPYFVOE", notch: "E" },
+            { name: "III", wiring: "BDFHJLCPRTXVZNYEIWGAKMUSQO", notch: "V" },
+            { name: "IV",  wiring: "ESOVPZJAYQUIRHXLNFTGKDCMWB", notch: "J" },
+            { name: "V",   wiring: "VZBRGITYUPSDNHLXAWMJQOFECK", notch: "Z" }
+        ];
+
+        // Reflector Wirings
+        const REFLECTORS = {
+            "B": "YRUHQSLDPXNGOKMIEBFZCWVJAT",
+            "C": "FVPJIAOYEDRZXWGCTKUQSBNMHL"
+        };
+
+        const QWERTZ_LAYOUT = [
+            ['Q', 'W', 'E', 'R', 'T', 'Z', 'U', 'I', 'O'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K'],
+            ['P', 'Y', 'X', 'C', 'V', 'B', 'N', 'M', 'L']
+        ];
+
+        // Colors for plugboard cables
+        const PLUG_COLORS = [
+            '#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93', 
+            '#ff99c8', '#00f5d4', '#f15bb5', '#fee440', '#00bbf9',
+            '#e5989b', '#b56576', '#eaac8b'
+        ];
+
+        let state = {
+            rotors: [0, 1, 2], // Selected rotor indices (Left, Middle, Right)
+            positions: [0, 0, 0], // Current positions A=0, Z=25
+            rings: [0, 0, 0], // Ring settings (simplified to 0 for this sim, but logic supports it)
+            reflector: "B",
+            plugboard: {}, // Map of letter -> letter
+            plugColors: {}, // Map of letter -> color
+            plugSelection: null, // First letter clicked for plugging
+            colorIndex: 0,
+            text: "",
+            isKeyHeld: false
+        };
+
+        // Audio context for mechanical click sound
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playClickSound() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function initUI() {
+            const lightboardEl = document.getElementById('lightboard');
+            const keyboardEl = document.getElementById('keyboard');
+            const plugboardEl = document.getElementById('plugboard');
+
+            lightboardEl.innerHTML = '';
+            keyboardEl.innerHTML = '';
+            plugboardEl.innerHTML = '';
+
+            // Build Lightboard & Keyboard
+            QWERTZ_LAYOUT.forEach(row => {
+                const lRow = document.createElement('div');
+                lRow.className = 'qwertz-row';
+                const kRow = document.createElement('div');
+                kRow.className = 'qwertz-row';
+
+                row.forEach(char => {
+                    // Lamp
+                    const lamp = document.createElement('div');
+                    lamp.className = 'lamp';
+                    lamp.id = `lamp-${char}`;
+                    lamp.textContent = char;
+                    lRow.appendChild(lamp);
+
+                    // Key
+                    const key = document.createElement('div');
+                    key.className = 'key';
+                    key.id = `key-${char}`;
+                    key.textContent = char;
+                    
+                    // Mouse events for keys
+                    key.addEventListener('mousedown', () => handleKeyPress(char));
+                    key.addEventListener('mouseup', () => handleKeyRelease(char));
+                    key.addEventListener('mouseleave', () => handleKeyRelease(char));
+                    
+                    // Touch events for mobile
+                    key.addEventListener('touchstart', (e) => { e.preventDefault(); handleKeyPress(char); });
+                    key.addEventListener('touchend', (e) => { e.preventDefault(); handleKeyRelease(char); });
+
+                    kRow.appendChild(key);
+                });
+
+                lightboardEl.appendChild(lRow);
+                keyboardEl.appendChild(kRow);
+            });
+
+            // Build Plugboard
+            ALPHABET.split('').forEach(char => {
+                const socket = document.createElement('div');
+                socket.className = 'plug-socket';
+                socket.id = `plug-${char}`;
+                socket.onclick = () => handlePlugClick(char);
+                
+                const holes = document.createElement('div');
+                holes.className = 'socket-holes';
+                holes.innerHTML = '<div class="hole"></div><div class="hole"></div>';
+                
+                const label = document.createElement('div');
+                label.className = 'plug-label';
+                label.textContent = char;
+
+                socket.appendChild(holes);
+                socket.appendChild(label);
+                plugboardEl.appendChild(socket);
+            });
+
+            updateRotorUI();
+        }
+
+        function charToIndex(c) { return ALPHABET.indexOf(c); }
+        function indexToChar(i) { return ALPHABET[(i + 26) % 26]; }
+
+        function stepRotors() {
+            // Rotors from Left (0), Middle (1), Right (2)
+            const rRight = ROTORS[state.rotors[2]];
+            const rMiddle = ROTORS[state.rotors[1]];
+            
+            // Check notches before stepping
+            const rightAtNotch = ALPHABET[state.positions[2]] === rRight.notch;
+            const middleAtNotch = ALPHABET[state.positions[1]] === rMiddle.notch;
+
+            // Step Right (always)
+            state.positions[2] = (state.positions[2] + 1) % 26;
+
+            // Double stepping anomaly:
+            // If middle is at notch, BOTH middle and left step.
+            // If right is at notch, middle steps.
+            if (middleAtNotch) {
+                state.positions[1] = (state.positions[1] + 1) % 26;
+                state.positions[0] = (state.positions[0] + 1) % 26;
+            } else if (rightAtNotch) {
+                state.positions[1] = (state.positions[1] + 1) % 26;
+            }
+
+            updateRotorUI();
+        }
+
+        function passThroughRotor(inputIndex, rotorDef, position, ring, reverse = false) {
+            // Shift = position - ring setting
+            let shift = position - ring;
+            let indexInOut = (inputIndex + shift + 26) % 26;
+            let outputIndex;
+
+            if (!reverse) {
+                // Forward pass
+                let mappedChar = rotorDef.wiring[indexInOut];
+                outputIndex = charToIndex(mappedChar);
+            } else {
+                // Reverse pass
+                let targetChar = ALPHABET[indexInOut];
+                let wireIndex = rotorDef.wiring.indexOf(targetChar);
+                outputIndex = wireIndex;
+            }
+
+            return (outputIndex - shift + 26) % 26;
+        }
+
+        function encryptChar(c) {
+            c = c.toUpperCase();
+            if (!ALPHABET.includes(c)) return null;
+
+            stepRotors();
+
+            let currentIdx = charToIndex(c);
+
+            // 1. Plugboard In
+            let pChar = state.plugboard[ALPHABET[currentIdx]] || ALPHABET[currentIdx];
+            currentIdx = charToIndex(pChar);
+
+            // 2. Rotors Forward (Right -> Middle -> Left)
+            for (let i = 2; i >= 0; i--) {
+                currentIdx = passThroughRotor(currentIdx, ROTORS[state.rotors[i]], state.positions[i], state.rings[i], false);
+            }
+
+            // 3. Reflector
+            let refWiring = REFLECTORS[state.reflector];
+            let refMappedChar = refWiring[currentIdx];
+            currentIdx = charToIndex(refMappedChar);
+
+            // 4. Rotors Reverse (Left -> Middle -> Right)
+            for (let i = 0; i <= 2; i++) {
+                currentIdx = passThroughRotor(currentIdx, ROTORS[state.rotors[i]], state.positions[i], state.rings[i], true);
+            }
+
+            // 5. Plugboard Out
+            let outChar = ALPHABET[currentIdx];
+            let finalChar = state.plugboard[outChar] || outChar;
+
+            return finalChar;
+        }
+
+        function handleKeyPress(char) {
+            if (state.isKeyHeld) return; // Prevent continuous firing if key held down
+            state.isKeyHeld = true;
+            
+            playClickSound();
+
+            document.getElementById(`key-${char}`).classList.add('pressed');
+            
+            let encrypted = encryptChar(char);
+            if (encrypted) {
+                document.getElementById(`lamp-${encrypted}`).classList.add('active');
+                state.text += encrypted;
+                
+                // Format output in blocks of 5
+                let formattedOutput = state.text.replace(/(.{5})/g, "$1 ").trim();
+                document.getElementById('output-text').textContent = formattedOutput;
+            }
+        }
+
+        function handleKeyRelease(char) {
+            state.isKeyHeld = false;
+            let keyEl = document.getElementById(`key-${char}`);
+            if (keyEl) keyEl.classList.remove('pressed');
+            
+            // Turn off all lamps
+            document.querySelectorAll('.lamp').forEach(l => l.classList.remove('active'));
+        }
+
+        // Global keyboard listener
+        document.addEventListener('keydown', (e) => {
+            if (e.repeat) return; // Ignore hold
+            let char = e.key.toUpperCase();
+            // Handle QWERTZ mapping or standard typing
+            if (ALPHABET.includes(char)) {
+                handleKeyPress(char);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            let char = e.key.toUpperCase();
+            if (ALPHABET.includes(char)) {
+                handleKeyRelease(char);
+            }
+        });
+
+        function adjustRotor(index, direction) {
+            state.positions[index] = (state.positions[index] + direction + 26) % 26;
+            updateRotorUI();
+        }
+
+        function updateRotorUI() {
+            document.getElementById('rotor1-window').textContent = ALPHABET[state.positions[0]];
+            document.getElementById('rotor2-window').textContent = ALPHABET[state.positions[1]];
+            document.getElementById('rotor3-window').textContent = ALPHABET[state.positions[2]];
+        }
+
+        function handlePlugClick(char) {
+            const socketEl = document.getElementById(`plug-${char}`);
+
+            // If already plugged, unplug it and its pair
+            if (state.plugboard[char]) {
+                const pair = state.plugboard[char];
+                delete state.plugboard[char];
+                delete state.plugboard[pair];
+                
+                document.getElementById(`plug-${char}`).classList.remove('active');
+                document.getElementById(`plug-${char}`).style.removeProperty('--plug-color');
+                
+                document.getElementById(`plug-${pair}`).classList.remove('active');
+                document.getElementById(`plug-${pair}`).style.removeProperty('--plug-color');
+                return;
+            }
+
+            // Selection state
+            if (state.plugSelection === null) {
+                // First click
+                state.plugSelection = char;
+                socketEl.classList.add('selected');
+            } else {
+                // Second click
+                if (state.plugSelection === char) {
+                    // Deselect self
+                    socketEl.classList.remove('selected');
+                    state.plugSelection = null;
+                } else {
+                    // Connect pair
+                    let char1 = state.plugSelection;
+                    let char2 = char;
+                    
+                    state.plugboard[char1] = char2;
+                    state.plugboard[char2] = char1;
+                    
+                    let color = PLUG_COLORS[state.colorIndex % PLUG_COLORS.length];
+                    state.colorIndex++;
+
+                    document.getElementById(`plug-${char1}`).classList.remove('selected');
+                    
+                    const el1 = document.getElementById(`plug-${char1}`);
+                    const el2 = document.getElementById(`plug-${char2}`);
+                    
+                    el1.classList.add('active');
+                    el1.style.setProperty('--plug-color', color);
+                    
+                    el2.classList.add('active');
+                    el2.style.setProperty('--plug-color', color);
+
+                    state.plugSelection = null;
+                }
+            }
+        }
+
+        function resetMachine() {
+            state.positions = [0, 0, 0];
+            updateRotorUI();
+            clearOutput();
+        }
+
+        function clearOutput() {
+            state.text = "";
+            document.getElementById('output-text').textContent = "";
+        }
+
+        document.getElementById('rotor1-type').addEventListener('change', (e) => { state.rotors[0] = parseInt(e.target.value); resetMachine(); });
+        document.getElementById('rotor2-type').addEventListener('change', (e) => { state.rotors[1] = parseInt(e.target.value); resetMachine(); });
+        document.getElementById('rotor3-type').addEventListener('change', (e) => { state.rotors[2] = parseInt(e.target.value); resetMachine(); });
+        document.getElementById('reflector-select').addEventListener('change', (e) => { state.reflector = e.target.value; resetMachine(); });
+
+        // Initialize on load
+        window.onload = () => {
+            initUI();
+        };
+    </script>
+</body>
+</html>
